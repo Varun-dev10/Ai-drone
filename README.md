@@ -1,7 +1,4 @@
 <!-- ════ Banner ═════════════════════ -->
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Varun-dev10/Ai-drone/main/assets/banner.png" alt="Ai‑Drone Logo" width="260"/>
-</p>
 
 <h1 align="center">Ai‑Drone</h1>
 <p align="center">
@@ -22,7 +19,7 @@ Ai‑Drone is an open-source Python-based framework designed for Jetson platform
 - 📁 *Modular structure*: Clear separation between model, tracking logic, and drone control.
 
 ---
-
+https://github.com/user-attachments/assets/a7e45dab-6393-4eb3-9562-4fb057c961f2
 ## 🚀 Quick Start
 
 ```bash
@@ -43,3 +40,6 @@ These components are required to configure build
 
 # Run the follow script
 sudo python3 follow_main.py --operation=active --log_dir=log/flight1
+
+
+
