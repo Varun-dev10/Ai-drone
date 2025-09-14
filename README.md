@@ -10,7 +10,6 @@
 ## 🧠 Overview
 
 Ai‑Drone is an open-source Python-based framework designed for Jetson platforms like Nano/Xavier. With a built-in camera pipeline and deep‑learning model, the drone autonomously follows a human target using real‑time visual inference and control.  
-(Note: Confirmed via project page – the repo is licensed under MIT and described as “AI powered drone which will track humans and follow autonomously”) 1
 
 ### Key Highlights
 
@@ -39,7 +38,7 @@ These components are required to configure build
 
 
 # Run the follow script
-sudo python3 follow_main.py --operation=active --log_dir=log/flight1
+sudo python3 follow_main.py --mode=active --log_dir=log/flight1
 
 
 
