@@ -21,7 +21,7 @@ Ai‑Drone is an open-source Python-based framework designed for Jetson platform
 https://github.com/user-attachments/assets/a7e45dab-6393-4eb3-9562-4fb057c961f2
 
 ![DORNE IMAGE](image1.jpeg)
-
+![DORNE IMAGE](image2.jpeg)
 
 ## 🚀 Quick Start
 
