@@ -7,34 +7,32 @@ recognition_engine = None
 image_source = None
 
 def prepare_detection_system():
-    """
-    Sets up the neural network and camera for object recognition.
-    """
+    
+    # Sets up the neural network and camera for object recognition.
+    
     global recognition_engine, image_source
     recognition_engine = neural_processor.detectNet("ssd-mobilenet-v2")
     image_source = camera_handler.videoSource("csi://0")
     print("Recognition system ready")
 
 def get_image_resolution():
-    """
-    Obtains the resolution of the captured image.
-    Returns:
-        tuple: Width and height of the image.
-    """
+    
+    # Obtains the resolution of the captured image.
+   
+    
     return image_source.GetWidth(), image_source.GetHeight()
 
 def terminate_image_source():
-    """
-    Shuts down the camera connection.
-    """
+    
+    # Shuts down the camera connection.
+    
     image_source.Close()
 
 def retrieve_detected_entities():
-    """
-    Detects objects in the current image frame.
-    Returns:
-        tuple: List of detected humans, processing speed, and image data.
-    """
+    
+    # Detects objects in the current image frame.
+   
+    
     detected_humans = []
     captured_image = image_source.Capture()
     recognition_results = recognition_engine.Detect(captured_image)

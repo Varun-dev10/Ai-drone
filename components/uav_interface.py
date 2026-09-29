@@ -1,191 +1,127 @@
 from dronekit import *
 
-autonomous_unit = None
+copter = None
 
 def establish_uav_connection(access_point):
-    """
-    Creates a connection to the UAV using the provided access point.
-    Args:
-        access_point (str): Connection endpoint (e.g., '/dev/ttyACM0').
-    """
-    global autonomous_unit
-    if autonomous_unit == None:
-        autonomous_unit = connect(access_point, wait_ready=True, baud=57600)
+    global copter
+    if copter == None:
+        copter = connect(access_point, wait_ready=True, baud=57600)
     print("UAV connection activated")
 
 def sever_uav_connection():
-    """
-    Disconnects from the UAV.
-    """
-    autonomous_unit.close()
+
+    copter.close()
 
 def query_firmware_details():
-    """
-    Fetches the firmware version of the UAV.
-    Returns:
-        str: Firmware version.
-    """
-    global autonomous_unit
-    return autonomous_unit.version
+    global copter
+    return copter.version
 
-def query_position_data():
-    """
-    Fetches the current GPS coordinates of the UAV.
-    Returns:
-        Location: GPS coordinates.
-    """
-    global autonomous_unit
-    return autonomous_unit.location.global_frame
+def query_position_data():  
+    global copter
+    return copter.location.global_frame
 
-def query_altitude_data():
-    """
-    Fetches the current orientation and altitude of the UAV.
-    Returns:
-        Attitude: Orientation data.
-    """
-    global autonomous_unit
-    return autonomous_unit.attitude
+def query_altitude_data(): 
+    global copter
+    return copter.attitude
 
 def query_speed_data():
-    """
-    Fetches the current velocity of the UAV.
-    Returns:
-        list: Velocity vector [x, y, z].
-    """
-    global autonomous_unit
-    return autonomous_unit.velocity
+    global copter
+    return copter.velocity
 
 def query_power_status():
-    """
-    Fetches the battery status of the UAV.
-    Returns:
-        Battery: Battery information.
-    """
-    global autonomous_unit
-    return autonomous_unit.battery
+    global copter
+    return copter.battery
 
 def query_operation_mode():
-    """
-    Fetches the current operation mode of the UAV.
-    Returns:
-        str: Current mode name.
-    """
-    global autonomous_unit
-    return autonomous_unit.mode.name
+    global copter
+    return copter.mode.name
 
 def query_base_position():
-    """
-    Fetches the designated home position of the UAV.
-    Returns:
-        Location: Home coordinates.
-    """
-    global autonomous_unit
-    return autonomous_unit.home_location
+    global copter
+    return copter.home_location
 
 def query_navigation_health():
-    """
-    Verifies the health of the navigation system (EKF).
-    Returns:
-        bool: True if healthy, False otherwise.
-    """
-    return autonomous_unit.ekf_ok
+    return copter.ekf_ok
 
 def adjust_camera_angle(new_angle):
-    """
-    Adjusts the camera gimbal to the specified angle.
-    Args:
-        new_angle (float): Target angle in degrees.
-    """
-    global autonomous_unit
+    global copter
     print(f"Setting camera angle to: {new_angle}")
-    return autonomous_unit.gimbal.rotate(0, new_angle, 0)
+    return copter.gimbal.rotate(0, new_angle, 0)
 
 def set_movement_speed(new_speed):
-    """
-    Sets the UAV's movement speed.
-    Args:
-        new_speed (float): Target speed in m/s.
-    """
-    global autonomous_unit
+    global copter
     print(f"Adjusting speed to: {new_speed}")
-    autonomous_unit.groundspeed = new_speed
+    copter.groundspeed = new_speed
 
 def initiate_ascension(target_elevation):
-    """
-    Prepares and launches the UAV to the specified elevation.
-    Args:
-        target_elevation (float): Target elevation in meters.
-    """
-    global autonomous_unit
+    global copter
 
     print("Configuring default speed to 3 m/s for safety")
-    autonomous_unit.groundspeed = 3
+    copter.groundspeed = 3
 
     print("Performing pre-launch checks")
-    while not autonomous_unit.is_armable:
+    while not copter.is_armable:
         print("Awaiting UAV readiness...")
-        timing.sleep(1)
+        time.sleep(1)
 
     print("Activating propulsion systems")
-    autonomous_unit.mode = VehicleMode("GUIDED")
-    autonomous_unit.armed = True
+    copter.mode = VehicleMode("GUIDED")
+    copter.armed = True
 
-    while not autonomous_unit.armed:
+    while not copter.armed:
         print("Waiting for propulsion activation...")
-        timing.sleep(1)
+        time.sleep(1)
 
     print("Commencing ascent!")
-    autonomous_unit.simple_takeoff(target_elevation)
+    copter.simple_takeoff(target_elevation)
 
     while True:
-        print(f"Elevation: {autonomous_unit.location.global_relative_frame.alt}")
-        if autonomous_unit.location.global_relative_frame.alt >= target_elevation * 0.95:
+        print(f"Elevation: {copter.location.global_relative_frame.alt}")
+        if copter.location.global_relative_frame.alt >= target_elevation * 0.95:
             print("Target elevation achieved")
             break
-        timing.sleep(1)
+        time.sleep(1)
 
 def commence_landing():
     """
     Commands the UAV to enter landing mode.
     """
-    global autonomous_unit
+    global copter
     print("Entering DESCEND mode...")
-    autonomous_unit.mode = VehicleMode("LAND")
+    copter.mode = VehicleMode("LAND")
 
 def return_to_origin():
     """
     Commands the UAV to return to its starting position.
     Note: No obstacle avoidance!
     """
-    autonomous_unit.mode = VehicleMode("RTL")
+    copter.mode = VehicleMode("RTL")
 
 def issue_rotation_command(target_direction):
-    """
-    Sends a rotation command to the UAV.
-    Args:
-        target_direction (float): Desired direction in degrees (0-360).
-    """
-    global autonomous_unit
+   
+    global copter
     rotation_rate = 0
-    turn_direction = 1
+    turn_direction = 1  #direction -1 ccw, 1 cw
+    
+    #heading 0 to 360 degree. if negative then ccw 
 
     print(f"Issuing rotation command with direction: {target_direction}")
 
     if target_direction < 0:
         target_direction = target_direction * -1
         turn_direction = -1
-
-    instruction_packet = autonomous_unit.message_factory.command_long_encode(
+    #point drone into correct heading 
+    instruction_packet = copter.message_factory.command_long_encode(
         0, 0,
         mavutil.mavlink.MAV_CMD_CONDITION_YAW,
         0,
         target_direction,
-        rotation_rate,
+        rotation_rate,    #speed deg/s
         turn_direction,
-        1,
+        1,                #relative offset 1
         0, 0, 0)
 
-    autonomous_unit.send_mavlink(instruction_packet)
+    copter.send_mavlink(instruction_packet)
 
 def issue_motion_command(speed_x, speed_y, speed_z):
     """
@@ -195,11 +131,11 @@ def issue_motion_command(speed_x, speed_y, speed_z):
         speed_y (float): Left/right speed.
         speed_z (float): Up/down speed.
     """
-    global autonomous_unit
+    global copter
 
     print(f"Issuing motion command: X={speed_x} Y={speed_y} Z={speed_z}")
 
-    instruction_packet = autonomous_unit.message_factory.set_position_target_local_ned_encode(
+    instruction_packet = copter.message_factory.set_position_target_local_ned_encode(
         0,
         0, 0,
         mavutil.mavlink.MAV_FRAME_BODY_NED,
@@ -209,4 +145,4 @@ def issue_motion_command(speed_x, speed_y, speed_z):
         0, 0, 0,
         0, 0)
 
-    autonomous_unit.send_mavlink(instruction_packet)
+    copter.send_mavlink(instruction_packet)

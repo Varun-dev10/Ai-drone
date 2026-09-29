@@ -7,15 +7,15 @@ sys.path.insert(1, 'components')
 import cv2
 import collections
 
-import lidar_module as lidar_system
-import detector_ssd as object_tracker
-import uav_interface as uav
-import image_processing as vision_util
-import flight_controller as regulator
-import keyboard as input_checker
+import lidar_module as lidar
+import detector_ssd as detector
+import drone_interface as drone
+import image_processing as vision
+import flight_controller as control
+import keyboard 
 
 # Command-line argument parser
-options_parser = optparse.OptionParser(description='Autonomous navigation for UAV')
+options_parser = optparse.OptionParser(description='Autonomous navigation for drone')
 options_parser.add_option('--log_dir', type=str, default="logs/experiment1", help='Directory for log storage')
 options_parser.add_option('--operation', type=str, default='active', help='Operation type: active, log, or display')
 options_parser.add_option('--algorithm', type=str, default='PID', help='Control algorithm: PID or Simple')
@@ -28,54 +28,54 @@ SPEED_CAP = 2                                  # meters per second
 ANGLE_LIMIT = 20                               # degrees
 BUFFER_SIZE_X = 5
 BUFFER_SIZE_Y = 5
-ROLLING_AVG_X = queue.deque(maxlen=BUFFER_SIZE_X)  # X-axis rolling average
-ROLLING_AVG_Y = queue.deque(maxlen=BUFFER_SIZE_Y)  # Y-axis rolling average
+ROLLING_AVG_X = collections.deque(maxlen=BUFFER_SIZE_X)  # X-axis rolling average
+ROLLING_AVG_Y = collections.deque(maxlen=BUFFER_SIZE_Y)  # Y-axis rolling average
 SYSTEM_STATUS = "launch"                       # Initial phase: launch, descend, pursue, seek
 
 def system_initialization():
     print("Starting LIDAR connection")
-    lidar_system.start_lidar_connection("/dev/ttyTHS1")
+    lidar.activate_lidar_link("/dev/ttyTHS1")
 
     print("Configuring object detection module")
-    object_tracker.setup_recognition()
+    detector.setup_recognition()
 
-    print("Linking with UAV")
+    print("Linking with drone")
     if parsed_options.operation == "active":
         print("Operation set to active")
-        regulator.link_to_uav('/dev/ttyACM0')
+        control.link_to_drone('/dev/ttyACM0')
     else:
         print("Operation set to simulation")
-        regulator.link_to_uav('127.0.0.1:14550')
+        control.link_to_drone('127.0.0.1:14550')
 
 system_initialization()
 
-display_width, display_height = object_tracker.retrieve_frame_dimensions()
+display_width, display_height = detector.retrieve_frame_dimensions()
 display_center = (display_width / 2, display_height / 2)
 log_video_recorder = cv2.VideoWriter(parsed_options.log_dir + ".avi", cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 25.0, (display_width, display_height))
 
-regulator.setup_control_mechanism(parsed_options.algorithm)
-regulator.start_log_files(parsed_options.log_dir)
+control.setup_control_mechanism(parsed_options.algorithm)
+control.start_log_files(parsed_options.log_dir)
 
 def execute_pursuit():
     print(f"Phase: PURSUIT -> {SYSTEM_STATUS}")
     while True:
-        if input_checker.check_key_pressed('q'):
+        if keyboard.is_pressed('q'):
             print("User requested termination")
             perform_descent()
 
-        tracked_objects, frame_speed, current_frame = object_tracker.fetch_recognized_objects()
+        tracked_objects, frame_speed, current_frame = detector.fetch_recognized_objects()
 
         if len(tracked_objects) > 0:
             primary_target = tracked_objects[0]
 
             target_position = primary_target.Center
 
-            horizontal_offset = vision_util.calculate_axis_difference(display_center[0], target_position[0])
-            vertical_offset = vision_util.calculate_axis_difference(display_center[1], target_position[1])
+            horizontal_offset = vision.calculate_axis_difference(display_center[0], target_position[0])
+            vertical_offset = vision.calculate_axis_difference(display_center[1], target_position[1])
 
-            is_lidar_aimed = vision_util.is_within_bounds(display_center, primary_target.Left, primary_target.Right, primary_target.Top, primary_target.Bottom)
+            is_lidar_aimed = vision.is_within_bounds(display_center, primary_target.Left, primary_target.Right, primary_target.Top, primary_target.Bottom)
 
-            lidar_measure = lidar_system.fetch_lidar_range()[0]
+            lidar_measure = lidar.fetch_lidar_range()[0]
 
             ROLLING_AVG_Y.append(lidar_measure)
             ROLLING_AVG_X.append(horizontal_offset)
@@ -84,16 +84,16 @@ def execute_pursuit():
             if lidar_measure > 0 and is_lidar_aimed and len(ROLLING_AVG_Y) > 0:
                 avg_distance_offset = compute_rolling_mean(ROLLING_AVG_Y)
                 avg_distance_offset = avg_distance_offset - THRESHOLD_RANGE
-                regulator.assign_distance_deviation(avg_distance_offset)
-                forward_speed = regulator.obtain_forward_speed_command()
+                control.assign_distance_deviation(avg_distance_offset)
+                forward_speed = control.obtain_forward_speed_command()
 
             orientation_adjust = 0
             if len(ROLLING_AVG_X) > 0:
                 avg_horizontal_offset = compute_rolling_mean(ROLLING_AVG_X)
-                regulator.assign_horizontal_deviation(avg_horizontal_offset)
-                orientation_adjust = regulator.obtain_rotation_angle()
+                control.assign_horizontal_deviation(avg_horizontal_offset)
+                orientation_adjust = control.obtain_rotation_angle()
 
-            regulator.apply_uav_commands()
+            control.apply_drone_commands()
 
             render_frame_data(lidar_measure, target_position, primary_target, current_frame, orientation_adjust, horizontal_offset, vertical_offset, frame_speed, forward_speed, is_lidar_aimed)
         else:
@@ -101,34 +101,34 @@ def execute_pursuit():
 
 def execute_searching():
     print(f"Phase: SEARCH -> {SYSTEM_STATUS}")
-    initial_timestamp = datetime.datetime.now().timestamp()
+    initial_timestamp = time.time()
 
-    regulator.halt_uav_motion()
-    while (datetime.datetime.now().timestamp() - initial_timestamp) < 40:
-        if input_checker.check_key_pressed('q'):
+    control.halt_drone_motion()
+    while (time.time() - initial_timestamp) < 40:
+        if keyboard.is_pressed('q'):
             print("User requested termination")
             perform_descent()
 
-        tracked_objects, frame_speed, current_frame = object_tracker.fetch_recognized_objects()
+        tracked_objects, frame_speed, current_frame = detector.fetch_recognized_objects()
         print(f"Seeking targets: {len(tracked_objects)}")
         if len(tracked_objects) > 0:
             return "pursuit"
         if "test" == parsed_options.operation:
-            cv2.putText(current_frame, f"Seeking object. Remaining time: {40 - (datetime.datetime.now().timestamp() - initial_timestamp)}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3, cv2.LINE_AA)
+            cv2.putText(current_frame, f"Seeking object. Remaining time: {40 - (time.time() - initial_timestamp)}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3, cv2.LINE_AA)
             show_frame(current_frame)
 
     return "descend"
 
 def perform_launch():
-    regulator.display_uav_status()
+    control.display_drone_status()
     print(f"Phase: LAUNCH -> {SYSTEM_STATUS}")
-    regulator.activate_and_ascend(HEIGHT_CEILING)
+    control.activate_and_ascend(HEIGHT_CEILING)
     return "seek"
 
 def perform_descent():
     print(f"Phase: DESCEND -> {SYSTEM_STATUS}")
-    regulator.descend_uav()
-    object_tracker.shutdown_camera()
+    control.descend_drone()
+    detector.shutdown_camera()
     sys.exit(0)
 
 def show_frame(frame_data):
@@ -172,11 +172,11 @@ while True:
     """ Controls whether PID or Simple algorithm is applied based on input """
 
     if SYSTEM_STATUS == "pursuit":
-        regulator.update_phase("pursuit")
+        control.update_phase("pursuit")
         SYSTEM_STATUS = execute_pursuit()
 
     elif SYSTEM_STATUS == "seek":
-        regulator.update_phase("seek")
+        control.update_phase("seek")
         SYSTEM_STATUS = execute_searching()
 
     elif SYSTEM_STATUS == "launch":
