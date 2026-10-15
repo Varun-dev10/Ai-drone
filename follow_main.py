@@ -1,6 +1,6 @@
 import sys, time
 import argparse
-sys.path.insert(1, 'modules')
+sys.path.insert(1, 'components')
 
 import cv2
 import collections
